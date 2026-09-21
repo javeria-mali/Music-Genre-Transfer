@@ -9,27 +9,48 @@ import soundfile as sf
 import streamlit as st
 import matplotlib.pyplot as plt
 import tensorflow as tf
+from huggingface_hub import hf_hub_download
+
 
 # ============================================================
 # PATHS
 # ============================================================
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
 
-sys.path.append(os.path.join(BASE_DIR, "src"))
+sys.path.append(
+    os.path.join(BASE_DIR, "src")
+)
 
 from model import ConditionalAutoencoder
 
 
-MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "models",
+# ============================================================
+# HUGGING FACE MODEL
+# ============================================================
+
+HF_REPO_ID = "Javeriamalik10/music-genre-transfer-model"
+
+HF_MODEL_FILE = (
     "best_improved_music_genre_autoencoder.weights.h5"
 )
 
-OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# ============================================================
+# OUTPUT DIRECTORY
+# ============================================================
+
+OUTPUT_DIR = os.path.join(
+    BASE_DIR,
+    "outputs"
+)
+
+os.makedirs(
+    OUTPUT_DIR,
+    exist_ok=True
+)
 
 
 # ============================================================
@@ -37,10 +58,15 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # ============================================================
 
 SAMPLE_RATE = 22050
+
 DURATION = 30
+
 N_MELS = 128
+
 HOP_LENGTH = 512
+
 MAX_FRAMES = 1292
+
 
 GENRES = [
     "classical",
@@ -137,7 +163,9 @@ st.markdown(
 # ============================================================
 
 st.markdown(
-    '<div class="main-title">🎵 AI Music Genre Style Transfer</div>',
+    '<div class="main-title">'
+    '🎵 AI Music Genre Style Transfer'
+    '</div>',
     unsafe_allow_html=True
 )
 
@@ -163,6 +191,10 @@ def load_model():
         latent_dim=256
     )
 
+    # --------------------------------------------------------
+    # Build model architecture
+    # --------------------------------------------------------
+
     dummy_x = tf.zeros(
         (1, 128, 1292, 1),
         dtype=tf.float32
@@ -173,28 +205,57 @@ def load_model():
         dtype=tf.int32
     )
 
-    # Build model
     model(
         [dummy_x, dummy_genre],
         training=False
     )
 
-    print("Model architecture created successfully!")
-
-    # Load trained weights
-    model.load_weights(
-        MODEL_PATH
+    print(
+        "Model architecture created successfully!"
     )
 
-    print("Trained weights loaded successfully!")
+    # --------------------------------------------------------
+    # Download model weights from Hugging Face
+    # --------------------------------------------------------
+
+    model_path = hf_hub_download(
+        repo_id=HF_REPO_ID,
+        filename=HF_MODEL_FILE
+    )
+
+    print(
+        "Hugging Face model downloaded successfully!"
+    )
+
+    # --------------------------------------------------------
+    # Load trained weights
+    # --------------------------------------------------------
+
+    model.load_weights(
+        model_path
+    )
+
+    print(
+        "Trained weights loaded successfully!"
+    )
 
     return model
 
 
+# ============================================================
+# INITIALIZE MODEL
+# ============================================================
+
 try:
+
     model = load_model()
+
 except Exception as e:
-    st.error(f"Model load error: {e}")
+
+    st.error(
+        f"Model load error: {e}"
+    )
+
     st.stop()
 
 
@@ -212,17 +273,30 @@ def audio_to_mel(audio_path):
     )
 
     if len(audio) == 0:
-        raise ValueError("Audio file is empty.")
 
-    target_length = SAMPLE_RATE * DURATION
+        raise ValueError(
+            "Audio file is empty."
+        )
+
+    target_length = (
+        SAMPLE_RATE * DURATION
+    )
 
     if len(audio) < target_length:
+
         audio = np.pad(
             audio,
-            (0, target_length - len(audio))
+            (
+                0,
+                target_length - len(audio)
+            )
         )
+
     else:
-        audio = audio[:target_length]
+
+        audio = audio[
+            :target_length
+        ]
 
     mel = librosa.feature.melspectrogram(
         y=audio,
@@ -242,20 +316,32 @@ def audio_to_mel(audio_path):
         0
     )
 
-    mel_norm = (mel_db + 80) / 80
+    mel_norm = (
+        (mel_db + 80) / 80
+    )
 
-    mel_norm = mel_norm[:, :MAX_FRAMES]
+    mel_norm = mel_norm[
+        :,
+        :MAX_FRAMES
+    ]
 
     if mel_norm.shape[1] < MAX_FRAMES:
+
         mel_norm = np.pad(
             mel_norm,
             (
                 (0, 0),
-                (0, MAX_FRAMES - mel_norm.shape[1])
+                (
+                    0,
+                    MAX_FRAMES -
+                    mel_norm.shape[1]
+                )
             )
         )
 
-    return mel_norm.astype(np.float32)
+    return mel_norm.astype(
+        np.float32
+    )
 
 
 # ============================================================
@@ -264,7 +350,9 @@ def audio_to_mel(audio_path):
 
 def mel_to_audio(mel_norm):
 
-    mel_norm = np.squeeze(mel_norm)
+    mel_norm = np.squeeze(
+        mel_norm
+    )
 
     mel_norm = np.clip(
         mel_norm,
@@ -272,7 +360,9 @@ def mel_to_audio(mel_norm):
         1
     )
 
-    mel_db = (mel_norm * 80) - 80
+    mel_db = (
+        (mel_norm * 80) - 80
+    )
 
     mel_power = librosa.db_to_power(
         mel_db
@@ -293,7 +383,10 @@ def mel_to_audio(mel_norm):
 # SPECTROGRAM
 # ============================================================
 
-def show_spectrogram(mel, title):
+def show_spectrogram(
+    mel,
+    title
+):
 
     fig, ax = plt.subplots(
         figsize=(10, 4)
@@ -324,7 +417,9 @@ def show_spectrogram(mel, title):
 
 with st.sidebar:
 
-    st.header("🎛️ Settings")
+    st.header(
+        "🎛️ Settings"
+    )
 
     source_genre = st.selectbox(
         "Original Genre",
@@ -340,10 +435,15 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.write("### 📌 Available Genres")
+    st.write(
+        "### 📌 Available Genres"
+    )
 
     for genre in GENRES:
-        st.write(f"• {genre.title()}")
+
+        st.write(
+            f"• {genre.title()}"
+        )
 
     st.markdown("---")
 
@@ -362,7 +462,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.subheader("🎧 Upload Your Music")
+st.subheader(
+    "🎧 Upload Your Music"
+)
 
 uploaded_file = st.file_uploader(
     "Choose an audio file",
@@ -405,7 +507,9 @@ if uploaded_file is not None:
 
     st.markdown("---")
 
-    st.subheader("✨ Transform Your Music")
+    st.subheader(
+        "✨ Transform Your Music"
+    )
 
     st.write(
         f"**{source_genre.title()} → "
@@ -429,6 +533,8 @@ if uploaded_file is not None:
             "AI is transforming your music... 🎶"
         ):
 
+            temp_path = None
+
             try:
 
                 # ------------------------------------------------
@@ -448,11 +554,12 @@ if uploaded_file is not None:
                         uploaded_file.getbuffer()
                     )
 
-                    temp_path = temp_file.name
-
+                    temp_path = (
+                        temp_file.name
+                    )
 
                 # ------------------------------------------------
-                # PREPROCESS
+                # PREPROCESS AUDIO
                 # ------------------------------------------------
 
                 mel = audio_to_mel(
@@ -473,34 +580,38 @@ if uploaded_file is not None:
                     dtype=np.int32
                 )
 
-
                 # ------------------------------------------------
                 # MODEL PREDICTION
                 # ------------------------------------------------
 
-                generated_mel, genre_prediction = model.predict(
-                    (
-                        model_input,
-                        genre_input
-                    ),
-                    verbose=0
+                generated_mel, genre_prediction = (
+                    model.predict(
+                        (
+                            model_input,
+                            genre_input
+                        ),
+                        verbose=0
+                    )
                 )
 
-
-                generated_mel = generated_mel[0, :, :, 0]
-
+                generated_mel = (
+                    generated_mel[
+                        0, :, :, 0
+                    ]
+                )
 
                 # ------------------------------------------------
                 # GENERATED AUDIO
                 # ------------------------------------------------
 
-                generated_audio = mel_to_audio(
-                    generated_mel
+                generated_audio = (
+                    mel_to_audio(
+                        generated_mel
+                    )
                 )
 
-
                 # ------------------------------------------------
-                # SAVE OUTPUT
+                # SAVE OUTPUT AUDIO
                 # ------------------------------------------------
 
                 output_name = (
@@ -519,7 +630,6 @@ if uploaded_file is not None:
                     SAMPLE_RATE
                 )
 
-
                 # ------------------------------------------------
                 # SAVE SPECTROGRAM
                 # ------------------------------------------------
@@ -536,8 +646,10 @@ if uploaded_file is not None:
 
                 fig = show_spectrogram(
                     generated_mel,
-                    f"{source_genre.title()} → "
-                    f"{target_genre.title()}"
+                    (
+                        f"{source_genre.title()} → "
+                        f"{target_genre.title()}"
+                    )
                 )
 
                 fig.savefig(
@@ -547,17 +659,6 @@ if uploaded_file is not None:
                 )
 
                 plt.close(fig)
-
-
-                # ------------------------------------------------
-                # CLEAN TEMP FILE
-                # ------------------------------------------------
-
-                try:
-                    os.remove(temp_path)
-                except:
-                    pass
-
 
                 # ------------------------------------------------
                 # RESULT
@@ -582,7 +683,6 @@ if uploaded_file is not None:
                         format=uploaded_file.type
                     )
 
-
                 with col2:
 
                     st.subheader(
@@ -593,7 +693,6 @@ if uploaded_file is not None:
                         output_path,
                         format="audio/wav"
                     )
-
 
                 # ------------------------------------------------
                 # SPECTROGRAM
@@ -610,7 +709,6 @@ if uploaded_file is not None:
                     use_container_width=True
                 )
 
-
                 # ------------------------------------------------
                 # DOWNLOAD
                 # ------------------------------------------------
@@ -623,12 +721,14 @@ if uploaded_file is not None:
                 ) as audio_file:
 
                     st.download_button(
-                        label="⬇️ Download Transformed Audio",
+                        label=(
+                            "⬇️ Download "
+                            "Transformed Audio"
+                        ),
                         data=audio_file,
                         file_name=output_name,
                         mime="audio/wav"
                     )
-
 
                 # ------------------------------------------------
                 # CLASSIFIER RESULT
@@ -640,13 +740,18 @@ if uploaded_file is not None:
                     "🤖 Genre Classification"
                 )
 
-                probabilities = genre_prediction[0]
+                probabilities = (
+                    genre_prediction[0]
+                )
 
-                for i, genre in enumerate(GENRES):
+                for i, genre in enumerate(
+                    GENRES
+                ):
 
                     probability = (
-                        float(probabilities[i])
-                        * 100
+                        float(
+                            probabilities[i]
+                        ) * 100
                     )
 
                     st.write(
@@ -654,12 +759,26 @@ if uploaded_file is not None:
                         f"{probability:.2f}%"
                     )
 
-
             except Exception as e:
 
                 st.error(
                     f"❌ Transformation failed: {e}"
                 )
+
+            finally:
+
+                # ------------------------------------------------
+                # CLEAN TEMP FILE
+                # ------------------------------------------------
+
+                if temp_path is not None:
+
+                    try:
+                        os.remove(
+                            temp_path
+                        )
+                    except Exception:
+                        pass
 
 
 # ============================================================
